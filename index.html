@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>오둑 (O-Duk) - 풍류와 전략의 대국</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;700&display=swap');
+
+        :root {
+            --board-color: #dcb35c;
+            --line-color: #3e2723;
+            --bg-dark: #2c1e14;
+            --accent: #ffecb3;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            background-image: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), 
+                              url('https://www.transparenttextures.com/patterns/dark-wood.png');
+            font-family: 'Noto Serif KR', serif;
+            margin: 0;
+            padding: 0;
+            color: #f3e5f5;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* 메인 페이지 레이아웃 */
+        .home-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .hero-title {
+            font-size: 3.5rem;
+            color: var(--accent);
+            text-shadow: 0 0 20px rgba(255, 236, 179, 0.3);
+            margin-bottom: 1rem;
+            letter-spacing: 0.2rem;
+        }
+
+        .hero-subtitle {
+            font-size: 1.2rem;
+            opacity: 0.8;
+            margin-bottom: 3rem;
+            max-width: 600px;
+            line-height: 1.6;
+        }
+
+        /* 게임 화면 레이아웃 */
+        .game-section {
+            display: none; /* 초기에는 숨김 */
+            flex-direction: column;
+            align-items: center;
+            padding: 20px 10px;
+            min-height: 100vh;
+        }
+
+        .board-wrapper {
+            width: 95vw;
+            max-width: 450px;
+            aspect-ratio: 1 / 1;
+            background-color: var(--board-color);
+            padding: 5px;
+            border: 5px solid #5d4037;
+            border-radius: 4px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+            position: relative;
+        }
+
+        .board {
+            display: grid;
+            grid-template-columns: repeat(15, 1fr);
+            grid-template-rows: repeat(15, 1fr);
+            width: 100%;
+            height: 100%;
+            border: 1px solid var(--line-color);
+        }
+
+        .cell {
+            border: 0.1px solid rgba(62, 39, 35, 0.15);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .stone {
+            width: 88%;
+            height: 88%;
+            border-radius: 50%;
+            z-index: 5;
+            pointer-events: none;
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .stone.black {
+            background: radial-gradient(circle at 30% 30%, #444, #000);
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.6);
+        }
+
+        .stone.white {
+            background: radial-gradient(circle at 30% 30%, #fff, #bbb);
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
+            border: 0.5px solid #999;
+        }
+
+        .stone.flipped {
+            background: #8d6e63;
+            opacity: 0.4;
+            transform: scale(0.65);
+            filter: blur(1px);
+        }
+
+        .last-move-marker {
+            width: 8px;
+            height: 8px;
+            background: #ff5252;
+            border-radius: 50%;
+            position: absolute;
+            z-index: 10;
+            box-shadow: 0 0 5px #ff5252;
+        }
+
+        /* 버튼 및 컴포넌트 */
+        .primary-btn {
+            background: var(--accent);
+            color: #3e2723;
+            padding: 12px 40px;
+            border-radius: 50px;
+            font-weight: bold;
+            font-size: 1.1rem;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(255, 236, 179, 0.2);
+        }
+
+        .primary-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 236, 179, 0.4);
+        }
+
+        .sub-btn {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,236,179,0.3);
+            padding: 8px 20px;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        .sub-btn.active {
+            background: var(--accent);
+            color: #3e2723;
+        }
+
+        .status-badge {
+            background: rgba(0,0,0,0.4);
+            padding: 8px 24px;
+            border-radius: 30px;
+            border: 1px solid rgba(255,236,179,0.2);
+            font-size: 1rem;
+            margin-bottom: 20px;
+        }
+
+        /* 모달 시스템 */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.9);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            backdrop-filter: blur(8px);
+        }
+
+        .modal-content {
+            background: #fdf5e6;
+            color: #3e2723;
+            width: 90%;
+            max-width: 400px;
+            padding: 30px;
+            border-radius: 12px;
+            border: 5px double #8d6e63;
+            text-align: center;
+            position: relative;
+        }
+
+        #toast {
+            position: fixed;
+            bottom: 10%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.85);
+            color: #fff;
+            padding: 10px 24px;
+            border-radius: 30px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+            z-index: 2000;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- [Home Screen] -->
+    <div id="home-view" class="home-section">
+        <h1 class="hero-title">오둑 (O-Duk)</h1>
+        <p class="hero-subtitle">
+            전통 오목의 미학에 전략적 '뒤집기'를 더했습니다.<br>
+            상대를 에워싸 기운을 꺾고, 다섯 돌을 이어 승리를 거머쥐십시오.
+        </p>
+        
+        <div class="flex flex-col gap-4 w-full max-w-xs">
+            <button onclick="startGame()" class="primary-btn">대국 시작하기</button>
+            <button onclick="showRules()" class="sub-btn">대국 규칙 보기</button>
+        </div>
+
+        <div class="mt-12 grid grid-cols-2 gap-8 opacity-60 text-sm">
+            <div>
+                <p class="font-bold text-amber-200">오목(五目)</p>
+                <p>다섯 돌의 결합</p>
+            </div>
+            <div>
+                <p class="font-bold text-amber-200">기둑(氣-)</p>
+                <p>돌의 기운을 끊음</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- [Game Screen] -->
+    <div id="game-view" class="game-section">
+        <div class="w-full flex justify-between items-center mb-6 px-4">
+            <button onclick="goToHome()" class="text-amber-200 opacity-70 hover:opacity-100">← 나가기</button>
+            <div class="text-right">
+                <p id="player-name" class="font-bold text-amber-200">선비</p>
+                <p class="text-xs opacity-60">명성: <span id="player-score">0</span></p>
+            </div>
+        </div>
+
+        <div id="turn-display" class="status-badge">흑돌의 차례</div>
+
+        <div class="flex gap-2 mb-4">
+            <button id="mode-pvp" class="sub-btn active" onclick="changeMode('pvp')">인간 대전</button>
+            <button id="mode-pve" class="sub-btn" onclick="changeMode('pve')">AI 대전</button>
+        </div>
+
+        <div id="diff-group" class="flex gap-2 mb-4 hidden">
+            <button id="diff-easy" class="sub-btn active" onclick="changeDiff('easy')">초보</button>
+            <button id="diff-normal" class="sub-btn" onclick="changeDiff('normal')">중수</button>
+            <button id="diff-hard" class="sub-btn" onclick="changeDiff('hard')">고수</button>
+        </div>
+
+        <div class="board-wrapper">
+            <div id="board" class="board"></div>
+        </div>
+
+        <div class="mt-8 flex gap-3">
+            <button class="sub-btn border-none bg-amber-900/30" onclick="resetGame()">새 판 짜기</button>
+            <button class="sub-btn border-none bg-amber-900/30" onclick="undoMove()">무르기</button>
+        </div>
+    </div>
+
+    <!-- [Modals] -->
+    <div id="login-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h2 class="text-2xl font-bold mb-6">성함을 알려주십시오</h2>
+            <input type="text" id="nick-input" placeholder="이름 (최대 8자)" maxlength="8" class="w-full border-b-2 border-amber-900 bg-transparent p-3 mb-8 text-center text-xl outline-none">
+            <button onclick="doLogin()" class="primary-btn w-full">입장하기</button>
+        </div>
+    </div>
+
+    <div id="rules-modal" class="modal-overlay" onclick="hideRules()">
+        <div class="modal-content text-left" onclick="event.stopPropagation()">
+            <h2 class="text-xl font-bold mb-4 border-b border-amber-900 pb-2">오둑의 법도</h2>
+            <ul class="text-sm space-y-3 mb-6">
+                <li>• <b>오목:</b> 가로, 세로, 대각선 중 한 방향으로 <b>다섯 돌</b>을 먼저 이으면 승리합니다.</li>
+                <li>• <b>기둑(뒤집기):</b> 상대방의 돌 무리를 자신의 돌로 사방(상하좌우)을 완전히 에워싸면, 갇힌 돌들은 기운을 잃고 <b>갈색</b>으로 변합니다.</li>
+                <li>• <b>무효화:</b> 기운을 잃은 돌은 승리 조건(5목)에 포함되지 않으며, 그 자리에 다시 돌을 놓을 수도 없습니다.</li>
+            </ul>
+            <button onclick="hideRules()" class="sub-btn w-full">확인</button>
+        </div>
+    </div>
+
+    <div id="result-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h2 id="result-title" class="text-3xl font-bold mb-2">승리!</h2>
+            <p id="result-msg" class="mb-8 opacity-70"></p>
+            <button onclick="closeResult()" class="primary-btn w-full">새로운 대국</button>
+        </div>
+    </div>
+
+    <div id="toast">이미 돌이 놓인 자리입니다.</div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'oduk-homepage-final';
+
+        let user = null;
+        let userData = { nickname: '선비', score: 0 };
+        const SIZE = 15;
+        let board = Array(SIZE).fill().map(() => Array(SIZE).fill(null));
+        let turn = 'black';
+        let mode = 'pvp';
+        let diff = 'easy';
+        let history = [];
+        let isOver = false;
+
+        // [초기화]
+        async function init() {
+            await signInAnonymously(auth);
+            user = auth.currentUser;
+            const saved = localStorage.getItem('oduk_user_name');
+            if(saved) {
+                const snap = await getDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data'));
+                if(snap.exists()) {
+                    userData = snap.data();
+                    updateProfileUI();
+                }
+            }
+        }
+
+        // [화면 전환]
+        window.startGame = () => {
+            const saved = localStorage.getItem('oduk_user_name');
+            if(!saved) {
+                document.getElementById('login-modal').style.display = 'flex';
+            } else {
+                showGameView();
+            }
+        };
+
+        window.doLogin = async () => {
+            const val = document.getElementById('nick-input').value.trim();
+            if(!val) return;
+            userData = { nickname: val, score: 0 };
+            localStorage.setItem('oduk_user_name', val);
+            await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data'), userData);
+            document.getElementById('login-modal').style.display = 'none';
+            updateProfileUI();
+            showGameView();
+        };
+
+        function showGameView() {
+            document.getElementById('home-view').style.display = 'none';
+            document.getElementById('game-view').style.display = 'flex';
+            renderBoard();
+        }
+
+        window.goToHome = () => {
+            document.getElementById('game-view').style.display = 'none';
+            document.getElementById('home-view').style.display = 'flex';
+        };
+
+        window.showRules = () => document.getElementById('rules-modal').style.display = 'flex';
+        window.hideRules = () => document.getElementById('rules-modal').style.display = 'none';
+
+        function updateProfileUI() {
+            document.getElementById('player-name').textContent = userData.nickname;
+            document.getElementById('player-score').textContent = userData.score;
+        }
+
+        // [게임 엔진]
+        function renderBoard() {
+            const el = document.getElementById('board');
+            el.innerHTML = '';
+            for(let r=0; r<SIZE; r++) {
+                for(let c=0; c<SIZE; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.onclick = () => handleMove(r, c);
+                    
+                    if(board[r][c]) {
+                        const s = document.createElement('div');
+                        s.className = `stone ${board[r][c]}`;
+                        cell.appendChild(s);
+                    }
+
+                    if(history.length > 0) {
+                        const last = history[history.length-1];
+                        if(last.r === r && last.c === c) {
+                            const marker = document.createElement('div');
+                            marker.className = 'last-move-marker';
+                            cell.appendChild(marker);
+                        }
+                    }
+                    el.appendChild(cell);
+                }
+            }
+        }
+
+        async function handleMove(r, c) {
+            if(isOver || board[r][c] || (mode === 'pve' && turn === 'white')) return;
+            makeMove(r, c);
+            if(isOver) return;
+            if(mode === 'pve') setTimeout(aiMove, 600);
+        }
+
+        function makeMove(r, c) {
+            board[r][c] = turn;
+            history.push({r, c, turn, snap: JSON.parse(JSON.stringify(board))});
+            checkFlip(r, c, turn);
+            
+            if(checkWin(r, c, turn)) {
+                endGame(turn);
+            } else {
+                turn = turn === 'black' ? 'white' : 'black';
+                document.getElementById('turn-display').textContent = turn === 'black' ? '흑돌의 차례' : '백돌의 차례';
+            }
+            renderBoard();
+        }
+
+        function checkFlip(r, c, p) {
+            const opp = p === 'black' ? 'white' : 'black';
+            [[0,1],[0,-1],[1,0],[-1,0]].forEach(([dr, dc]) => {
+                const nr = r+dr, nc = c+dc;
+                if(isValid(nr, nc) && board[nr][nc] === opp) {
+                    const group = [];
+                    if(!hasLib(nr, nc, opp, new Set(), group)) {
+                        group.forEach(([gr, gc]) => board[gr][gc] = 'flipped');
+                    }
+                }
+            });
+        }
+
+        function hasLib(r, c, color, vis, group) {
+            const key = `${r}-${c}`;
+            if(vis.has(key)) return false;
+            vis.add(key); group.push([r, c]);
+            let lib = false;
+            for(let [dr, dc] of [[0,1],[0,-1],[1,0],[-1,0]]) {
+                let nr = r+dr, nc = c+dc;
+                if(isValid(nr, nc)) {
+                    if(!board[nr][nc]) lib = true;
+                    else if(board[nr][nc] === color && hasLib(nr, nc, color, vis, group)) lib = true;
+                }
+            }
+            return lib;
+        }
+
+        function checkWin(r, c, p) {
+            const dirs = [[0,1], [1,0], [1,1], [1,-1]];
+            for(let [dr, dc] of dirs) {
+                let cnt = 1;
+                for(let s of [1, -1]) {
+                    let nr = r+dr*s, nc = c+dc*s;
+                    while(isValid(nr, nc) && board[nr][nc] === p) { cnt++; nr+=dr*s; nc+=dc*s; }
+                }
+                if(cnt >= 5) return true;
+            }
+            return false;
+        }
+
+        async function endGame(winner) {
+            isOver = true;
+            const title = document.getElementById('result-title');
+            const msg = document.getElementById('result-msg');
+            title.textContent = (winner === 'black' ? '흑' : '백') + " 승리!";
+            
+            if(mode === 'pve' && winner === 'black') {
+                const pts = {easy:1, normal:3, hard:10}[diff];
+                userData.score += pts;
+                updateProfileUI();
+                msg.textContent = `실력이 대단하십니다. 명성이 ${pts}만큼 상승했습니다.`;
+                await updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data'), { score: increment(pts) });
+            } else {
+                msg.textContent = "아름다운 대국이었습니다. 한 판 더 어떠십니까?";
+            }
+            document.getElementById('result-modal').style.display = 'flex';
+        }
+
+        function aiMove() {
+            if(isOver) return;
+            // 지능적 착수: 7,7(중앙) 근처부터 탐색하되 약간의 무작위성 부여
+            let best = -1, moves = [];
+            for(let r=0; r<SIZE; r++) {
+                for(let c=0; c<SIZE; c++) {
+                    if(!board[r][c]) {
+                        let score = (7-Math.abs(r-7)) + (7-Math.abs(c-7)) + Math.random()*2;
+                        if(score > best) { best = score; moves = [{r, c}]; }
+                        else if(score === best) moves.push({r, c});
+                    }
+                }
+            }
+            const m = moves[Math.floor(Math.random()*moves.length)];
+            makeMove(m.r, m.c);
+        }
+
+        // [UI 컨트롤]
+        window.changeMode = (m) => {
+            mode = m;
+            document.getElementById('mode-pvp').classList.toggle('active', m === 'pvp');
+            document.getElementById('mode-pve').classList.toggle('active', m === 'pve');
+            document.getElementById('diff-group').classList.toggle('hidden', m !== 'pve');
+            resetGame();
+        };
+
+        window.changeDiff = (d) => {
+            diff = d;
+            ['easy', 'normal', 'hard'].forEach(x => {
+                document.getElementById('diff-'+x).classList.toggle('active', x === d);
+            });
+            resetGame();
+        };
+
+        window.resetGame = () => {
+            board = Array(SIZE).fill().map(() => Array(SIZE).fill(null));
+            turn = 'black';
+            history = [];
+            isOver = false;
+            document.getElementById('turn-display').textContent = '흑돌의 차례';
+            renderBoard();
+        };
+
+        window.undoMove = () => {
+            if(history.length === 0 || isOver) return;
+            const count = mode === 'pve' ? 2 : 1;
+            for(let i=0; i<count; i++) history.pop();
+            
+            if(history.length === 0) resetGame();
+            else {
+                const last = history[history.length-1];
+                board = JSON.parse(JSON.stringify(last.snap));
+                turn = last.turn === 'black' ? 'white' : 'black';
+                document.getElementById('turn-display').textContent = turn === 'black' ? '흑돌의 차례' : '백돌의 차례';
+                renderBoard();
+            }
+        };
+
+        window.closeResult = () => {
+            document.getElementById('result-modal').style.display = 'none';
+            resetGame();
+        };
+
+        function isValid(r, c) { return r>=0 && r<SIZE && c>=0 && c<SIZE; }
+
+        init();
+    </script>
+</body>
+</html>
