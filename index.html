@@ -1,603 +1,780 @@
-
 <!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>풍류 대국: 오둑(O-Duk)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>풍류 대국: 오둑</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@700&family=Noto+Serif+KR:wght@400;700&display=swap');
-
-        :root {
-            --bg-color: #f4e9d5; 
-            --board-color: #d2b48c; 
-            --ink-black: #1a1a1a;
-            --paper-white: #fdfdfd;
-            --grid-line: rgba(0, 0, 0, 0.4);
-        }
-
-        body {
-            background-color: var(--bg-color);
-            font-family: 'Noto Serif KR', serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            margin: 0;
-            color: var(--ink-black);
-            background-image: url('https://www.transparenttextures.com/patterns/natural-paper.png');
-            overflow: hidden; 
-        }
-
-        h1 { font-size: 3rem; margin-bottom: 10px; text-shadow: 2px 2px 4px rgba(0,0,0,0.1); }
-
-        #menu { text-align: center; border: 4px double var(--ink-black); padding: 40px; background: rgba(255,255,255,0.3); position: relative; z-index: 10;}
-        .btn {
-            background: var(--ink-black);
-            color: var(--bg-color);
-            border: none;
-            padding: 15px 30px;
-            font-size: 1.2rem;
-            margin: 10px;
-            cursor: pointer;
-            transition: 0.3s;
-            font-family: 'Noto Serif KR', serif;
-        }
-        .btn:hover { background: #444; }
-
-        #game-screen { display: none; text-align: center; position: relative; z-index: 5; }
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;700&display=swap');
         
-        #board {
-            display: grid;
-            grid-template-columns: repeat(15, 40px);
-            grid-template-rows: repeat(15, 40px);
-            background-color: var(--board-color);
-            border: 2px solid #5d4037;
-            box-shadow: 5px 5px 15px rgba(0,0,0,0.3);
-            margin: 20px auto;
-            padding: 20px;
-        }
-
-        .cell {
-            width: 40px;
-            height: 40px;
-            position: relative;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .cell::before, .cell::after {
-            content: "";
-            position: absolute;
-            background-color: var(--grid-line);
-            z-index: 1;
-        }
-        .cell::before { width: 100%; height: 1px; top: 50%; left: 0; transform: translateY(-50%); }
-        .cell::after { width: 1px; height: 100%; left: 50%; top: 0; transform: translateX(-50%); }
-
-        .stone {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            z-index: 2;
-            transition: all 0.2s;
-            position: absolute;
-        }
-        .black { background: radial-gradient(circle at 30% 30%, #444, #000); box-shadow: 2px 2px 4px rgba(0,0,0,0.4); }
-        .white { background: radial-gradient(circle at 30% 30%, #fff, #ccc); border: 1px solid #aaa; box-shadow: 2px 2px 4px rgba(0,0,0,0.2); }
-        .dead { background: radial-gradient(circle at 30% 30%, #999, #555); transform: scale(0.8); opacity: 0.7; cursor: not-allowed; }
-
-        .captured-animation {
-            animation: captureEffect 0.5s ease-out;
-        }
-
-        @keyframes captureEffect {
-            0% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.2); opacity: 0.5; }
-            100% { transform: scale(0.8); opacity: 0.7; }
-        }
-
-        #victory-overlay {
-            display: none;
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.7);
-            z-index: 30;
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
-            animation: fadeIn 1s ease-in-out;
-        }
-        .victory-banner {
-            background-color: var(--bg-color);
-            border: 4px solid var(--ink-black);
-            padding: 40px 60px;
-            text-align: center;
+        :root { --bg-color: #f4e9d5; --ink-black: #1a1a1a; --btn-color: #2c2c2c; }
+        
+        body { 
+            background-color: var(--bg-color); 
             background-image: url('https://www.transparenttextures.com/patterns/natural-paper.png');
-            animation: slideUp 0.8s ease-out;
-        }
-        .victory-text { font-size: 4rem; font-weight: bold; color: var(--ink-black); margin: 0; }
-
-        #modal {
-            display: none;
-            position: fixed;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            background: var(--bg-color);
-            border: 5px double var(--ink-black);
-            padding: 30px;
-            z-index: 20;
-            max-width: 500px;
+            font-family: 'Noto Serif KR', serif; 
+            margin: 0; overflow: hidden; touch-action: none;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            height: 100vh; color: var(--ink-black);
         }
 
-        #warning-message {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(255, 0, 0, 0.95);
-            color: white;
-            padding: 20px 40px;
-            border-radius: 10px;
-            font-size: 1.5rem;
-            font-weight: bold;
-            z-index: 100;
-            display: none;
-            animation: warningPulse 0.5s ease-in-out;
+        /* 공통 컨테이너 */
+        .screen {
+            display: none; width: 90%; max-width: 400px;
+            background: rgba(255,255,255,0.85); backdrop-filter: blur(5px);
+            padding: 20px; border: 3px double var(--ink-black); border-radius: 8px;
+            text-align: center; box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            z-index: 10;
+        }
+        .screen.active { display: block; }
+
+        h1 { font-size: 2.5rem; margin-bottom: 10px; border-bottom: 2px solid var(--ink-black); display: inline-block; padding-bottom: 5px; }
+        h2 { font-size: 1.5rem; margin-bottom: 20px; }
+        
+        button {
+            background: var(--btn-color); color: #f4e9d5; border: none;
+            padding: 12px; width: 100%; margin: 5px 0; font-size: 1.1rem;
+            font-family: 'Noto Serif KR', serif; font-weight: bold; border-radius: 5px;
+            cursor: pointer; transition: transform 0.1s;
+        }
+        button:active { transform: scale(0.98); }
+        button.secondary { background: #5d4037; }
+
+        input[type="number"] {
+            width: 40%; padding: 10px; font-size: 1rem; margin: 5px;
+            border: 2px solid var(--ink-black); border-radius: 5px; text-align: center;
         }
 
-        @keyframes warningPulse {
-            0%, 100% { transform: translate(-50%, -50%) scale(1); }
-            50% { transform: translate(-50%, -50%) scale(1.1); }
+        /* 게임 화면 (캔버스) */
+        #game-container { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; display: none; }
+        canvas { display: block; touch-action: none; }
+        
+        /* 인게임 UI 오버레이 */
+        #ingame-ui {
+            position: fixed; top: 10px; left: 0; width: 100%; pointer-events: none;
+            display: flex; justify-content: space-between; padding: 0 10px; box-sizing: border-box;
+            z-index: 5;
+        }
+        .ui-tag { background: rgba(0,0,0,0.7); color: white; padding: 5px 10px; border-radius: 15px; font-size: 0.9rem; }
+        
+        #btn-reset-view {
+            position: fixed; top: 60px; right: 10px; pointer-events: auto;
+            width: 40px; height: 40px; border-radius: 50%; background: var(--ink-black); color: white;
+            display: flex; align-items: center; justify-content: center; font-size: 1.2rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3); z-index: 5;
+        }
+        
+        #btn-surrender {
+            position: fixed; bottom: 20px; right: 20px; width: auto; padding: 10px 20px;
+            background: #d32f2f; color: white; border-radius: 5px; border:none;
+            z-index: 5; pointer-events: auto; box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            font-family: 'Noto Serif KR', serif; font-weight: bold;
         }
 
-        #credits { position: fixed; bottom: 20px; right: 25px; text-align: right; font-size: 0.85rem; color: rgba(26, 26, 26, 0.6); z-index: 50; }
-        #coding-studio-label { position: fixed; bottom: 20px; left: 25px; font-family: 'Noto Sans KR', sans-serif; font-weight: 700; font-style: italic; font-size: 1.2rem; color: #333; z-index: 50; text-shadow: 1px 1px 1px rgba(0,0,0,0.2); }
+        /* 채팅 UI */
+        #chat-toggle {
+            position: fixed; bottom: 20px; left: 20px; z-index: 20;
+            width: 50px; height: 50px; border-radius: 50%; background: #0277bd; color: white;
+            border: none; font-size: 1.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.3); pointer-events: auto;
+        }
+        #chat-box {
+            position: fixed; bottom: 80px; left: 10px; width: 250px;
+            background: rgba(0,0,0,0.8); border-radius: 10px; padding: 10px;
+            z-index: 19; transform: translateX(-300px); transition: transform 0.3s;
+            pointer-events: auto; display: flex; flex-direction: column;
+        }
+        #chat-box.open { transform: translateX(0); }
+        #chat-msgs { height: 150px; overflow-y: auto; color: white; font-size: 0.8rem; margin-bottom: 5px; text-align: left; }
+        #chat-input { width: 100%; padding: 5px; box-sizing: border-box; }
+        .msg-me { color: #81d4fa; } .msg-opp { color: #ffab91; }
 
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        /* 규칙 리스트 */
+        ul { text-align: left; padding-left: 20px; line-height: 1.6; }
+        
+        /* 폭죽 캔버스 */
+        #confetti-canvas { position: fixed; top:0; left:0; width:100%; height:100%; pointer-events: none; z-index: 100; }
+        
+        /* 토스트 메시지 */
+        #toast {
+            visibility: hidden; min-width: 250px; background-color: rgba(0,0,0,0.8); color: #fff;
+            text-align: center; border-radius: 25px; padding: 16px; position: fixed; z-index: 999;
+            left: 50%; bottom: 10%; transform: translateX(-50%); font-size: 1rem;
+        }
+        #toast.show { visibility: visible; -webkit-animation: fadein 0.5s, fadeout 0.5s 2.5s; animation: fadein 0.5s, fadeout 0.5s 2.5s; }
+        
+        @keyframes fadein { from {bottom: 0; opacity: 0;} to {bottom: 10%; opacity: 1;} }
+        @keyframes fadeout { from {bottom: 10%; opacity: 1;} to {bottom: 0; opacity: 0;} }
     </style>
 </head>
 <body>
 
-    <div id="menu">
+    <div id="screen-menu" class="screen active">
         <h1>오 둑 (五 局)</h1>
-        <p><i>- 오목의 수와 바둑의 법이 만났도다 -</i></p>
-        <button class="btn" onclick="startGame()">대국 시작</button><br>
-        <button class="btn" onclick="toggleRules(true)">규칙 설명</button>
+        <p>포위된 돌은 죽은 돌이 된다.</p>
+        <button onclick="navTo('mode')">대국 시작</button>
+        <button class="secondary" onclick="navTo('rules')">규칙 설명</button>
     </div>
 
-    <div id="game-screen">
-        <div id="status">흑 선비님의 차례입니다.</div>
-        <div id="board"></div>
-        <button id="giveup-btn" class="btn" onclick="location.reload()">대국 포기</button>
+    <div id="screen-rules" class="screen">
+        <h2>규칙 설명</h2>
+        <ul>
+            <li><strong>승리:</strong> 오목(5개 연결)을 먼저 만들면 승리합니다.</li>
+            <li><strong>오둑(포위):</strong> 상대 돌이 내 돌을 완전히 감싸면, 갇힌 돌은 <strong>'돌무덤(회색)'</strong>이 되어 무효화됩니다.</li>
+            <li><strong>흑 금수:</strong> 흑은 3-3(열린 3 두 개)과 장목(6목 이상)이 금지됩니다. 착수 자체가 불가능합니다.</li>
+        </ul>
+        <button onclick="navTo('menu')">돌아가기</button>
     </div>
 
-    <div id="victory-overlay">
-        <div class="victory-banner">
-            <p class="victory-text"><span id="winner-color">흑</span> 승리!</p>
-            <p style="font-size: 1.5rem; margin-top: 10px;">대단한 명승부였습니다.</p>
-            <button class="btn" onclick="goToMenu()">대국 종료 (나가기)</button>
+    <div id="screen-mode" class="screen">
+        <h2>대국 방식 선택</h2>
+        <button onclick="startOnlineProcess()">온라인 대국</button>
+        <button onclick="navTo('ai-setup')">AI 대국</button>
+        <button onclick="navTo('local-setup')">2인용 대국</button>
+        <button class="secondary" onclick="navTo('menu')">뒤로가기</button>
+    </div>
+
+    <div id="screen-match" class="screen">
+        <h2>매칭 중...</h2>
+        <p id="match-timer">00초 경과</p>
+        <p>30초 내에 상대를 못 찾으면<br>AI와 연결됩니다.</p>
+        <button class="secondary" onclick="cancelMatch()">취소</button>
+    </div>
+
+    <div id="screen-ai-setup" class="screen">
+        <h2>AI 대국 설정</h2>
+        <p>오목판 크기 (최대 1000)</p>
+        <div style="display:flex; justify-content:center; align-items:center;">
+            <input type="number" id="ai-w" value="19" min="10" max="1000"> X 
+            <input type="number" id="ai-h" value="19" min="10" max="1000">
+        </div>
+        <p>난이도 선택</p>
+        <button onclick="startGameAI('Easy')">하수</button>
+        <button onclick="startGameAI('Medium')">중수</button>
+        <button onclick="startGameAI('Hard')">고수</button>
+        <button class="secondary" onclick="navTo('mode')">뒤로가기</button>
+    </div>
+
+    <div id="screen-local-setup" class="screen">
+        <h2>2인용 대국 설정</h2>
+        <p>오목판 크기</p>
+        <div style="display:flex; justify-content:center; align-items:center;">
+            <input type="number" id="local-w" value="19" min="10" max="1000"> X 
+            <input type="number" id="local-h" value="19" min="10" max="1000">
+        </div>
+        <button onclick="startGameLocal()">대국 시작</button>
+        <button class="secondary" onclick="navTo('mode')">뒤로가기</button>
+    </div>
+
+    <div id="game-container">
+        <canvas id="board-canvas"></canvas>
+        <div id="ingame-ui">
+            <div class="ui-tag" id="status-display">흑의 차례</div>
+            <div class="ui-tag" id="mode-display"></div>
+        </div>
+        <div id="btn-reset-view" onclick="resetViewport()">⟲</div>
+        <button id="btn-surrender" onclick="surrender()">기권</button>
+        
+        <button id="chat-toggle" onclick="toggleChat()" style="display:none;">💬</button>
+        <div id="chat-box">
+            <div id="chat-msgs"></div>
+            <input type="text" id="chat-input" placeholder="메시지 전송 (Enter)" onkeydown="if(event.keyCode===13) sendChat()">
         </div>
     </div>
 
-    <div id="modal">
-        <h2>오둑의 규칙</h2>
-        <ul style="text-align: left; line-height: 1.8;">
-            <li><b>교점 착수:</b> 돌은 선이 만나는 교점에 놓입니다.</li>
-            <li><b>오목 승리:</b> 정확히 5줄을 먼저 만들면 승리합니다.</li>
-            <li><b>포위/따먹기:</b> 바둑처럼 상대 돌을 둘러싸면 <b>'돌무덤(회색)'</b>으로 변합니다.</li>
-            <li><b>금지 구역:</b> 돌무덤이 된 자리에는 다시 돌을 둘 수 없습니다.</li>
-            <li><b>3-3 금수:</b> 흑돌은 독립적인 열린 삼이 동시에 2개 이상 만들어지는 곳에 둘 수 없습니다.</li>
-            <li><b>4-4 금수:</b> 흑돌은 열린 사가 동시에 2개 이상 만들어지는 곳에 둘 수 없습니다.</li>
-            <li><b>장목 금수:</b> 흑돌은 6개 이상 연속으로 놓을 수 없습니다.</li>
-        </ul>
-        <button class="btn" onclick="toggleRules(false)">알겠소</button>
-    </div>
-
-    <div id="warning-message"></div>
-
-    <div id="credits">
-        <div><span class="credit-label">Creator</span> 최승민 & 김도윤</div>
-        <div><span class="credit-label">Programmer</span> 최민준</div>
-    </div>
-
-    <div id="coding-studio-label">We are Coding Studio</div>
+    <canvas id="confetti-canvas"></canvas>
+    <div id="toast"></div>
 
     <script>
-        const size = 15;
-        let board = Array.from({ length: size }, () => Array(size).fill(0));
-        let currentPlayer = 1; 
-        let gameOver = false;
+        /* ----------------------------------------------------
+           1. Firebase 및 기본 변수
+        ---------------------------------------------------- */
+        const firebaseConfig = {
+            apiKey: "AIzaSyD0GwpH4EH4LIwu4kzyxfEL2zCJPXTrUgk", 
+            databaseURL: "https://dook-mobile-default-rtdb.asia-southeast1.firebasedatabase.app",
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
 
-        const boardEl = document.getElementById('board');
-        const statusEl = document.getElementById('status');
-        const victoryOverlay = document.getElementById('victory-overlay');
-        const warningMessage = document.getElementById('warning-message');
+        let gameState = 'MENU'; 
+        let gameMode = ''; 
+        let myId = 'U_' + Math.random().toString(36).substr(2, 6);
+        let currentRoomId = null;
+        let roomRef = null;
+        let queueRef = null;
+        
+        let board = [], rows = 19, cols = 19;
+        let turn = 1, myColor = 1;
+        let isMyTurn = false, isOnlineAI = false;
+        let aiDifficulty = 'Medium';
+        let matchTimerInterval = null;
 
-        function toggleRules(show) { document.getElementById('modal').style.display = show ? 'block' : 'none'; }
+        const canvas = document.getElementById('board-canvas');
+        const ctx = canvas.getContext('2d');
+        let cellSize = 40, offsetX = 0, offsetY = 0, scale = 1;
+        let isDragging = false, lastTouchX = 0, lastTouchY = 0, lastDist = 0;
 
-        function startGame() {
-            board = Array.from({ length: size }, () => Array(size).fill(0));
-            currentPlayer = 1; gameOver = false;
-            statusEl.innerText = "흑 선비님의 차례입니다.";
-            document.getElementById('menu').style.display = 'none';
-            document.getElementById('game-screen').style.display = 'block';
-            victoryOverlay.style.display = 'none';
-            createBoard();
-        }
-
-        function createBoard() {
-            boardEl.innerHTML = '';
-            for (let r = 0; r < size; r++) {
-                for (let c = 0; c < size; c++) {
-                    const cell = document.createElement('div');
-                    cell.className = 'cell';
-                    cell.dataset.row = r;
-                    cell.dataset.col = c;
-                    cell.onclick = () => placeStone(r, c);
-                    boardEl.appendChild(cell);
-                }
+        /* ----------------------------------------------------
+           2. 네비게이션 & 초기화
+        ---------------------------------------------------- */
+        function navTo(screenId) {
+            document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+            document.getElementById('screen-' + screenId).classList.add('active');
+            
+            if (screenId === 'menu') {
+                document.getElementById('game-container').style.display = 'none';
+                resetGameData();
             }
         }
 
-        function showWarning(message) {
-            warningMessage.textContent = message;
-            warningMessage.style.display = 'block';
+        function resetGameData() {
+            if (roomRef) roomRef.off();
+            if (queueRef) queueRef.remove(); // 대기열에 있다면 제거
+            roomRef = null; queueRef = null;
+            board = [];
+            turn = 1;
+            gameState = 'MENU';
+            document.getElementById('chat-toggle').style.display = 'none';
+            document.getElementById('chat-box').classList.remove('open');
+            document.getElementById('chat-msgs').innerHTML = '';
+            document.getElementById('confetti-canvas').getContext('2d').clearRect(0,0,window.innerWidth, window.innerHeight);
+        }
+
+        function showToast(msg) {
+            const x = document.getElementById("toast");
+            x.className = "show";
+            x.innerText = msg;
+            setTimeout(() => { x.className = x.className.replace("show", ""); }, 3000);
+        }
+
+        /* ----------------------------------------------------
+           3. 개선된 매칭 로직 (Queue 방식)
+        ---------------------------------------------------- */
+        function startOnlineProcess() {
+            navTo('match');
+            let startTime = Date.now();
+            let timerEl = document.getElementById('match-timer');
+            
+            // 30초 타이머
+            matchTimerInterval = setInterval(() => {
+                let elapsed = Math.floor((Date.now() - startTime) / 1000);
+                timerEl.innerText = elapsed + "초 경과";
+                if (elapsed >= 30) {
+                    cancelMatch(); // 기존 대기 취소
+                    startFakeOnlineAI();
+                }
+            }, 1000);
+
+            // 대기열 트랜잭션 시도
+            const qRef = db.ref('matchmaking/queue');
+            qRef.transaction((queue) => {
+                if (queue) {
+                    // 대기자가 있다! -> 내가 들어감 (P2)
+                    const keys = Object.keys(queue);
+                    const matchKey = keys[0]; // 가장 오래 기다린 사람
+                    const matchData = queue[matchKey];
+                    
+                    // 대기열에서 삭제 (내가 채갔으므로)
+                    delete queue[matchKey];
+                    
+                    // 반환값에 내가 누구랑 매칭됐는지 표시
+                    matchData.isMatch = true;
+                    return queue;
+                } else {
+                    // 대기자가 없다 -> 내가 대기열 생성 (P1)
+                    return null; // 여기서는 null 리턴하고 아래에서 set으로 처리
+                }
+            }, (error, committed, snapshot) => {
+                if (error) { showToast("매칭 오류 발생"); cancelMatch(); return; }
+
+                // 커밋됐는데 snapshot이 존재한다 -> 내가 P2로서 매칭을 성사시킴? 
+                // Firebase transaction 리턴값 처리가 까다로워서, 단순화된 로직 사용:
+                // 트랜잭션 대신 '선착순 조회' 방식으로 더 단순하고 확실하게 처리합니다.
+                
+                // 다시 조회 (위 트랜잭션 로직은 복잡도를 높여서 아래 방식으로 대체)
+                searchAndJoin();
+            });
+        }
+        
+        function searchAndJoin() {
+            // 1. 대기열 조회
+            db.ref('matchmaking/queue').orderByKey().limitToFirst(1).once('value', snapshot => {
+                if (snapshot.exists()) {
+                    // 대기자 발견! -> P2로 입장 시도
+                    let key = Object.keys(snapshot.val())[0];
+                    let hostData = snapshot.val()[key];
+                    
+                    // 원자적 제거 시도 (동시 접속 방지)
+                    db.ref('matchmaking/queue/'+key).remove().then(() => {
+                        // 제거 성공 -> 내가 P2 확정
+                        connectToRoom(hostData.roomId, 'player2');
+                    }).catch(e => {
+                        // 제거 실패(이미 누가 채감) -> 다시 방 만들기 시도
+                        createMyRoom();
+                    });
+                } else {
+                    // 대기자 없음 -> 내가 방장(P1)이 됨
+                    createMyRoom();
+                }
+            });
+        }
+
+        function createMyRoom() {
+            let rid = 'R_' + myId + '_' + Date.now();
+            // 대기열에 나 등록
+            let myQueueRef = db.ref('matchmaking/queue/' + myId);
+            myQueueRef.set({ roomId: rid, created: Date.now() });
+            myQueueRef.onDisconnect().remove(); // 앱 꺼지면 대기열 삭제
+            queueRef = myQueueRef; // 전역 변수에 저장 (취소용)
+
+            connectToRoom(rid, 'player1');
+        }
+
+        function connectToRoom(rid, role) {
+            currentRoomId = rid;
+            roomRef = db.ref('rooms/' + rid);
+            
+            if (role === 'player1') {
+                // 방장: 방 초기화 및 대기
+                let p1c = Math.random() < 0.5 ? 1 : 2;
+                roomRef.set({ 
+                    board: JSON.stringify(createEmptyBoard(15,15)), 
+                    turn: 1, 
+                    status: 'waiting', 
+                    p1: myId, 
+                    p1Color: p1c 
+                });
+                roomRef.onDisconnect().remove(); // 방장 나가면 방 폭파
+
+                // 상대방 입장 감지
+                roomRef.on('value', snap => {
+                    const d = snap.val();
+                    if (d && d.status === 'playing') {
+                        clearInterval(matchTimerInterval);
+                        if (queueRef) queueRef.remove(); // 대기열 삭제
+                        myColor = d.p1Color;
+                        startGameOnline(15, 15);
+                    }
+                });
+
+            } else {
+                // 도전자: 방 정보 업데이트 및 게임 시작 신호
+                roomRef.transaction(room => {
+                    if (!room) return room; // 방이 사라짐
+                    if (room.status !== 'waiting') return; // 이미 시작됨
+                    
+                    room.status = 'playing';
+                    room.p2 = myId;
+                    return room;
+                }, (err, comm, snap) => {
+                    if (comm) {
+                        // 성공적으로 입장
+                        clearInterval(matchTimerInterval);
+                        let p1c = snap.val().p1Color;
+                        myColor = (p1c === 1) ? 2 : 1;
+                        startGameOnline(15, 15);
+                    } else {
+                        // 입장 실패 (방 사라짐 등) -> 다시 매칭 시도
+                        searchAndJoin();
+                    }
+                });
+            }
+        }
+
+        function cancelMatch() {
+            clearInterval(matchTimerInterval);
+            if (queueRef) queueRef.remove(); // 대기열에서 나 삭제
+            if (roomRef) roomRef.remove(); // 내가 만든 방 삭제
+            resetGameData();
+            navTo('mode');
+        }
+
+        function startFakeOnlineAI() {
+            clearInterval(matchTimerInterval);
+            if (queueRef) queueRef.remove();
+            if (roomRef) roomRef.remove();
+            
+            isOnlineAI = true;
+            myColor = Math.random() < 0.5 ? 1 : 2;
+            gameMode = 'ONLINE_AI';
+            aiDifficulty = 'Medium';
+            initGameCommon(15, 15);
+        }
+
+        /* ----------------------------------------------------
+           4. 게임 시작 및 UI
+        ---------------------------------------------------- */
+        function startGameOnline(w, h) {
+            gameMode = 'ONLINE'; isOnlineAI = false;
+            initGameCommon(w, h);
+            document.getElementById('chat-toggle').style.display = 'block';
+            
+            // 게임 진행 리스너
+            roomRef.on('value', snap => {
+                const data = snap.val();
+                if (!data) { 
+                    // 방이 터짐 (상대 나감)
+                    if (gameState === 'PLAYING') { showToast("상대방 연결이 끊겼습니다."); setTimeout(()=>navTo('menu'), 2000); }
+                    return; 
+                }
+                if (data.winner) { endGame(data.winner); return; }
+                
+                let sBoard = JSON.parse(data.board);
+                if (JSON.stringify(sBoard) !== JSON.stringify(board)) {
+                    board = sBoard; turn = data.turn;
+                    drawBoard(); checkTurn();
+                }
+            });
+            roomRef.child('chat').on('child_added', snap => appendChat(snap.val().sender === myId, snap.val().text));
+        }
+
+        function startGameAI(diff) {
+            let w = parseInt(document.getElementById('ai-w').value) || 19;
+            let h = parseInt(document.getElementById('ai-h').value) || 19;
+            w = Math.min(1000, Math.max(10, w)); h = Math.min(1000, Math.max(10, h));
+            gameMode = 'AI'; aiDifficulty = diff;
+            myColor = Math.random() < 0.5 ? 1 : 2;
+            initGameCommon(w, h);
+        }
+
+        function startGameLocal() {
+            let w = parseInt(document.getElementById('local-w').value) || 19;
+            let h = parseInt(document.getElementById('local-h').value) || 19;
+            w = Math.min(1000, Math.max(10, w)); h = Math.min(1000, Math.max(10, h));
+            gameMode = 'LOCAL'; myColor = 1;
+            initGameCommon(w, h);
+        }
+
+        function initGameCommon(w, h) {
+            rows = w; cols = h;
+            board = createEmptyBoard(rows, cols);
+            turn = 1; gameState = 'PLAYING';
+            document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+            document.getElementById('game-container').style.display = 'block';
+            
+            let txt = (gameMode === 'ONLINE') ? "온라인" : (gameMode === 'LOCAL' ? "2인용" : "AI 대국");
+            if (isOnlineAI) txt = "온라인 (AI)";
+            document.getElementById('mode-display').innerText = txt;
+            
+            initViewport(); drawBoard(); checkTurn();
+        }
+
+        function createEmptyBoard(r, c) { return Array.from({length:r}, ()=>Array(c).fill(0)); }
+
+        function checkTurn() {
+            let cName = turn === 1 ? "흑" : "백";
+            let isMe = false;
+            if (gameMode === 'LOCAL') isMe = true;
+            else if (['ONLINE','AI','ONLINE_AI'].includes(gameMode)) isMe = (turn === myColor);
+            
+            isMyTurn = isMe;
+            document.getElementById('status-display').innerText = `${cName}의 차례` + (gameMode!=='LOCAL' ? (isMe?" (당신)":" (상대)") : "");
+            
+            if (!isMe && (gameMode === 'AI' || gameMode === 'ONLINE_AI') && gameState === 'PLAYING') {
+                setTimeout(aiMoveSmart, 700); 
+            }
+        }
+
+        /* ----------------------------------------------------
+           5. 캔버스 렌더링 & 제스처
+        ---------------------------------------------------- */
+        function initViewport() {
+            canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+            cellSize = Math.min(window.innerWidth, window.innerHeight) / 16;
+            if (rows > 20) cellSize = 25;
+            resetViewport();
+        }
+        function resetViewport() {
+            scale = 1;
+            offsetX = (canvas.width - rows * cellSize) / 2;
+            offsetY = (canvas.height - cols * cellSize) / 2;
+            drawBoard();
+        }
+        function drawBoard() {
+            if (gameState === 'MENU') return;
+            ctx.fillStyle = '#d2b48c'; ctx.fillRect(0,0,canvas.width,canvas.height);
+            ctx.save(); ctx.translate(offsetX, offsetY); ctx.scale(scale, scale);
+            
+            ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+            ctx.beginPath();
+            for(let i=0; i<rows; i++) { ctx.moveTo(0, i*cellSize+cellSize/2); ctx.lineTo(cols*cellSize, i*cellSize+cellSize/2); }
+            for(let i=0; i<cols; i++) { ctx.moveTo(i*cellSize+cellSize/2, 0); ctx.lineTo(i*cellSize+cellSize/2, rows*cellSize); }
+            ctx.stroke();
+            ctx.strokeRect(cellSize/2, cellSize/2, (cols-1)*cellSize, (rows-1)*cellSize);
+
+            for(let r=0; r<rows; r++) for(let c=0; c<cols; c++) if(board[r][c]!==0) drawStone(r,c,board[r][c]);
+            ctx.restore();
+        }
+        function drawStone(r, c, type) {
+            let cx = c*cellSize+cellSize/2, cy = r*cellSize+cellSize/2, rs = cellSize*0.4;
+            ctx.beginPath(); ctx.arc(cx, cy, rs, 0, Math.PI*2);
+            if(type===1){
+                let g=ctx.createRadialGradient(cx-rs*0.3, cy-rs*0.3, rs*0.1, cx, cy, rs);
+                g.addColorStop(0,'#555'); g.addColorStop(1,'#000'); ctx.fillStyle=g;
+            } else if(type===2){
+                let g=ctx.createRadialGradient(cx-rs*0.3, cy-rs*0.3, rs*0.1, cx, cy, rs);
+                g.addColorStop(0,'#fff'); g.addColorStop(1,'#ccc'); ctx.fillStyle=g;
+            } else { ctx.fillStyle='#7f8c8d'; }
+            ctx.fill();
+        }
+
+        canvas.addEventListener('touchstart', e => {
+            if(e.touches.length===2) lastDist = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+            else { isDragging=true; lastTouchX=e.touches[0].clientX; lastTouchY=e.touches[0].clientY; }
+        }, {passive:false});
+        canvas.addEventListener('touchmove', e => {
+            e.preventDefault();
+            if(e.touches.length===2) {
+                let d = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+                scale = Math.max(0.1, Math.min(5, scale * (1 + (d-lastDist)*0.005))); lastDist=d; drawBoard();
+            } else if(isDragging) {
+                offsetX += (e.touches[0].clientX-lastTouchX); offsetY += (e.touches[0].clientY-lastTouchY);
+                lastTouchX=e.touches[0].clientX; lastTouchY=e.touches[0].clientY; drawBoard();
+            }
+        }, {passive:false});
+        canvas.addEventListener('touchend', () => isDragging=false);
+        canvas.addEventListener('click', e => {
+            if(gameState!=='PLAYING' || !isMyTurn || isDragging) return;
+            let r = Math.floor((e.clientY-offsetY)/scale/cellSize);
+            let c = Math.floor((e.clientX-offsetX)/scale/cellSize);
+            attemptMove(r, c);
+        });
+
+        /* ----------------------------------------------------
+           6. 핵심 게임 로직 (3-3 금수 포함)
+        ---------------------------------------------------- */
+        function attemptMove(r, c) {
+            if (r<0||r>=rows||c<0||c>=cols||board[r][c]!==0) return;
+
+            // [핵심] 흑 금수 (3-3, 6목)
+            if (turn === 1) {
+                if (checkDoubleThree(r, c)) { showToast("⚠️ 흑 3-3 금지! 둘 수 없습니다."); return; }
+                if (checkOverline(r, c)) { showToast("⚠️ 흑 장목(6목) 금지! 둘 수 없습니다."); return; }
+            }
+            makeMove(r, c, turn);
+        }
+
+        function makeMove(r, c, color) {
+            board[r][c] = color;
+            
+            // 오둑: 포위 로직
+            let opp = (color===1?2:1);
+            [[0,1],[0,-1],[1,0],[-1,0]].forEach(([dr,dc])=>{
+                let nr=r+dr, nc=c+dc;
+                if(nr>=0 && nr<rows && nc>=0 && nc<cols && board[nr][nc]===opp) {
+                    let grp=[]; if(!hasLiberty(nr,nc,opp,new Set(),grp)) grp.forEach(([gr,gc])=>board[gr][gc]=-1);
+                }
+            });
+
+            if(checkWin(r, c, color)) { drawBoard(); endGame(color); return; }
+            if(board.flat().every(v=>v!==0)) { endGame(0); return; }
+
+            let nextTurn = (color===1?2:1);
+            if(gameMode==='ONLINE' && !isOnlineAI) roomRef.update({ board: JSON.stringify(board), turn: nextTurn });
+            else { turn = nextTurn; drawBoard(); checkTurn(); }
+        }
+
+        /* --- 흑 금수 알고리즘 --- */
+        function checkDoubleThree(r, c) {
+            board[r][c] = 1; // 가착수
+            let openThrees = 0;
+            const dirs = [[0,1],[1,0],[1,1],[1,-1]];
+            for (let [dr, dc] of dirs) {
+                if (isOpenThree(r, c, dr, dc)) openThrees++;
+            }
+            board[r][c] = 0; // 복구
+            return openThrees >= 2;
+        }
+
+        function isOpenThree(r, c, dr, dc) {
+            let line = [];
+            for(let i=-4; i<=4; i++) {
+                let nr=r+dr*i, nc=c+dc*i;
+                if(nr<0||nr>=rows||nc<0||nc>=cols) line.push(2); 
+                else line.push(board[nr][nc]); 
+            }
+            let str = line.join("");
+            const p1 = "01110", p2 = "010110", p3 = "011010"; 
+            if (str.includes(p1) && (str.indexOf(p1) <= 4 && str.indexOf(p1)+4 >= 4)) return true;
+            if (str.includes(p2) && (str.indexOf(p2) <= 4 && str.indexOf(p2)+5 >= 4)) return true;
+            if (str.includes(p3) && (str.indexOf(p3) <= 4 && str.indexOf(p3)+5 >= 4)) return true;
+            return false;
+        }
+
+        function checkOverline(r, c) {
+            board[r][c] = 1; 
+            let res = false;
+            [[0,1],[1,0],[1,1],[1,-1]].forEach(([dr,dc]) => {
+                let cnt=1, nr=r+dr, nc=c+dc;
+                while(nr>=0&&nr<rows&&nc>=0&&nc<cols&&board[nr][nc]===1){cnt++;nr+=dr;nc+=dc;}
+                nr=r-dr; nc=c-dc;
+                while(nr>=0&&nr<rows&&nc>=0&&nc<cols&&board[nr][nc]===1){cnt++;nr-=dr;nc-=dc;}
+                if(cnt > 5) res = true;
+            });
+            board[r][c] = 0;
+            return res;
+        }
+
+        /* --- 유틸리티 --- */
+        function checkWin(r, c, col) {
+            let win=false;
+            [[0,1],[1,0],[1,1],[1,-1]].forEach(([dr,dc])=>{
+                let cnt=1, nr=r+dr, nc=c+dc;
+                while(nr>=0&&nr<rows&&nc>=0&&nc<cols&&board[nr][nc]===col){cnt++;nr+=dr;nc+=dc;}
+                nr=r-dr; nc=c-dc;
+                while(nr>=0&&nr<rows&&nc>=0&&nc<cols&&board[nr][nc]===col){cnt++;nr-=dr;nc-=dc;}
+                if(cnt===5) win=true;
+            });
+            return win;
+        }
+        function hasLiberty(r, c, col, vis, grp) {
+            let key=`${r},${c}`; if(vis.has(key)) return false;
+            vis.add(key); grp.push([r,c]);
+            let alive=false;
+            [[0,1],[0,-1],[1,0],[-1,0]].forEach(([dr,dc])=>{
+                let nr=r+dr, nc=c+dc;
+                if(nr>=0&&nr<rows&&nc>=0&&nc<cols) {
+                    if(board[nr][nc]===0 || board[nr][nc]===-1) alive=true;
+                    else if(board[nr][nc]===col) { if(hasLiberty(nr,nc,col,vis,grp)) alive=true; }
+                }
+            });
+            return alive;
+        }
+
+        /* ----------------------------------------------------
+           7. 똑똑한 AI (Heuristic)
+        ---------------------------------------------------- */
+        function aiMoveSmart() {
+            let aiC = myColor === 1 ? 2 : 1; 
+            let opC = myColor; 
+            let bestScore = -99999999;
+            let moves = [];
+            let cand = [];
+            for(let r=0; r<rows; r++) {
+                for(let c=0; c<cols; c++) {
+                    if(board[r][c] !== 0) continue;
+                    if(!hasNeighbor(r,c,2) && rows>10) continue; 
+                    cand.push({r,c});
+                }
+            }
+            if (cand.length === 0) cand.push({r: Math.floor(rows/2), c: Math.floor(cols/2)});
+
+            cand.forEach(pos => {
+                let atk = evaluatePos(pos.r, pos.c, aiC);
+                let def = evaluatePos(pos.r, pos.c, opC);
+                let score = 0;
+                if(aiDifficulty === 'Easy') score = atk + def*0.5;
+                else if(aiDifficulty === 'Medium') score = atk + def*0.9;
+                else score = atk + def*1.1; 
+                score += Math.random() * 10;
+                if (aiC === 1 && (checkDoubleThree(pos.r, pos.c) || checkOverline(pos.r, pos.c))) score = -99999999;
+                if (score > bestScore) { bestScore = score; moves = [pos]; }
+                else if (score === bestScore) { moves.push(pos); }
+            });
+            if (moves.length > 0) {
+                let m = moves[Math.floor(Math.random()*moves.length)];
+                makeMove(m.r, m.c, aiC);
+            }
+        }
+
+        function hasNeighbor(r, c, dist) {
+            for(let i=-dist; i<=dist; i++) for(let j=-dist; j<=dist; j++) {
+                let nr=r+i, nc=c+j;
+                if(nr>=0 && nr<rows && nc>=0 && nc<cols && board[nr][nc]>0) return true;
+            }
+            return false;
+        }
+        function evaluatePos(r, c, color) {
+            board[r][c] = color;
+            let score = 0;
+            const dirs = [[0,1],[1,0],[1,1],[1,-1]];
+            for(let [dr, dc] of dirs) {
+                let line = getLine(r, c, dr, dc, color);
+                score += getLineScore(line, color);
+            }
+            board[r][c] = 0;
+            return score;
+        }
+        function getLine(r, c, dr, dc, color) {
+            let s = "";
+            for(let i=-4; i<=4; i++) {
+                let nr=r+dr*i, nc=c+dc*i;
+                if(nr<0||nr>=rows||nc<0||nc>=cols) s+="X"; 
+                else if(board[nr][nc]===0) s+="_";
+                else if(board[nr][nc]===color) s+="O";
+                else s+="X"; 
+            }
+            return s; 
+        }
+        function getLineScore(s, color) {
+            if (s.includes("OOOOO")) return 100000; 
+            if (s.includes("_OOOO_")) return 10000; 
+            if (s.includes("OOOO_") || s.includes("_OOOO") || s.includes("OO_OO") || s.includes("O_OOO") || s.includes("OOO_O")) return 2500; 
+            if (s.includes("_OOO_") || s.includes("_O_OO_") || s.includes("_OO_O_")) return 1500; 
+            if (s.includes("OOO__") || s.includes("__OOO")) return 500; 
+            if (s.includes("_OO_") || s.includes("_O_O_")) return 200; 
+            return 0;
+        }
+
+        /* ----------------------------------------------------
+           8. 게임 종료 및 연출
+        ---------------------------------------------------- */
+        function surrender() {
+            if (!confirm("기권하시겠습니까?")) return;
+            if (gameMode === 'ONLINE' && !isOnlineAI) roomRef.update({ winner: (myColor===1?2:1) });
+            else endGame(turn===1?2:1);
+        }
+
+        function endGame(winner) {
+            gameState = 'END';
+            let msg = winner===0 ? "무승부!" : (winner===1?"흑돌 승리!":"백돌 승리!");
+            showToast(msg);
+            if (winner!==0) fireworks();
             setTimeout(() => {
-                warningMessage.style.display = 'none';
-            }, 1500);
+                if (gameMode==='ONLINE' && !isOnlineAI && roomRef) roomRef.remove();
+                navTo('menu');
+            }, 4000);
         }
 
-        function placeStone(r, c) {
-            if (board[r][c] !== 0 || gameOver) return;
-            
-            // 0️⃣ 전제: 흑돌(currentPlayer === 1)일 때만 금수 체크
-            if (currentPlayer === 1) {
-                const forbiddenType = checkForbiddenMove(r, c);
-                if (forbiddenType) {
-                    showWarning(`금수! ${forbiddenType}`);
-                    return;
-                }
-            }
-            
-            board[r][c] = currentPlayer;
-            
-            // 포위 확인 (상대방 돌 잡아먹기)
-            const capturedGroups = checkCapture(r, c);
-            updateBoard(capturedGroups);
-            
-            // 승리 조건 확인
-            if (checkWin(r, c)) {
-                handleGameOver(currentPlayer === 1 ? "흑" : "백");
-                return;
-            }
-            
-            // 차례 변경
-            currentPlayer = currentPlayer === 1 ? 2 : 1;
-            statusEl.innerText = (currentPlayer === 1 ? "흑" : "백") + " 선비님의 차례입니다.";
-        }
-
-        // 핵심 요약: 흑이 둔 한 수로 서로 다른 방향에서 독립적인 열린 삼이 2개 이상 생성되면 3-3
-        function checkForbiddenMove(x, y) {
-            // 임시로 돌을 놓고 검사
-            board[x][y] = 1;
-            
-            // 1️⃣ 검사 방향 정의 (4개 축)
-            const directions = [
-                [1, 0],   // D0: 가로
-                [0, 1],   // D1: 세로
-                [1, 1],   // D2: 대각선 ↘
-                [1, -1]   // D3: 대각선 ↗
-            ];
-            
-            let overlineExists = false;
-            let openThreeCount = 0;
-            let openFourCount = 0;
-            
-            // 2️⃣ 각 축에서 연속선 정보 추출
-            for (let [dx, dy] of directions) {
-                const lineInfo = extractLineInfo(x, y, dx, dy);
-                
-                // 장목 체크 (6개 이상)
-                if (lineInfo.consecutiveCount >= 6) {
-                    overlineExists = true;
-                }
-                
-                // 3️⃣~5️⃣ 열린 삼/사 후보 패턴 생성 및 판정
-                if (isOpenThree(x, y, dx, dy, lineInfo)) {
-                    openThreeCount++;
-                }
-                
-                if (isOpenFour(x, y, dx, dy, lineInfo)) {
-                    openFourCount++;
-                }
-            }
-            
-            // 돌 제거
-            board[x][y] = 0;
-            
-            // 7️⃣ 최종 판정
-            if (overlineExists) return "장목 (6개 이상)";
-            if (openFourCount >= 2) return "4-4";
-            if (openThreeCount >= 2) return "3-3";
-            
-            return null;
-        }
-
-        // 2️⃣ 각 축에서 연속선 정보 추출
-        function extractLineInfo(x, y, dx, dy) {
-            const BLACK = 1;
-            let consecutiveCount = 1; // 현재 위치 포함
-            
-            // 양방향으로 연속된 흑돌 카운트
-            let count1 = 0, count2 = 0;
-            
-            // +방향
-            let nx = x + dx, ny = y + dy;
-            while (isInBoard(nx, ny) && board[nx][ny] === BLACK) {
-                count1++;
-                nx += dx;
-                ny += dy;
-            }
-            const end1 = isInBoard(nx, ny) ? board[nx][ny] : -2; // -2: 경계
-            
-            // -방향
-            nx = x - dx;
-            ny = y - dy;
-            while (isInBoard(nx, ny) && board[nx][ny] === BLACK) {
-                count2++;
-                nx -= dx;
-                ny -= dy;
-            }
-            const end2 = isInBoard(nx, ny) ? board[nx][ny] : -2;
-            
-            consecutiveCount += count1 + count2;
-            
-            return {
-                consecutiveCount,
-                end1, // 0: EMPTY, 2: 백돌, -1: 돌무덤, -2: 경계
-                end2,
-                count1,
-                count2
-            };
-        }
-
-        // 4️⃣ 열린 삼(open three) 판정
-        // 조건: 다음 한 수로 사(4)를 만들 수 있는 위치가 2곳 이상, 양 끝이 EMPTY
-        function isOpenThree(x, y, dx, dy, lineInfo) {
-            const BLACK = 1;
-            
-            // 정확히 3개 연속일 때
-            if (lineInfo.consecutiveCount === 3) {
-                // 양 끝이 모두 비어있으면 열린 삼
-                if (lineInfo.end1 === 0 && lineInfo.end2 === 0) {
-                    return true;
-                }
-            }
-            
-            // 띄엄삼 검사 (예: ●_●● 또는 ●●_●)
-            // 라인 추출 범위: 현재 위치 기준 앞뒤로 최대 5칸
-            const line = extractLine(x, y, dx, dy, 5);
-            
-            // 라인에서 흑돌 3개 + 빈칸 포함하여 열린 삼 패턴 찾기
-            const patterns = findThreePatterns(line);
-            
-            for (let pattern of patterns) {
-                if (pattern.isOpen && pattern.blackCount === 3) {
-                    return true;
-                }
-            }
-            
-            return false;
-        }
-
-        // 4️⃣ 열린 사(open four) 판정
-        function isOpenFour(x, y, dx, dy, lineInfo) {
-            // 정확히 4개 연속
-            if (lineInfo.consecutiveCount === 4) {
-                // 한쪽 끝이라도 비어있으면 열린 사
-                if (lineInfo.end1 === 0 || lineInfo.end2 === 0) {
-                    return true;
-                }
-            }
-            
-            // 띄엄사 검사
-            const line = extractLine(x, y, dx, dy, 5);
-            const patterns = findFourPatterns(line);
-            
-            for (let pattern of patterns) {
-                if (pattern.isOpen && pattern.blackCount === 4) {
-                    return true;
-                }
-            }
-            
-            return false;
-        }
-
-        // 라인 추출 (중심점 기준 양방향)
-        function extractLine(x, y, dx, dy, range) {
-            const line = [];
-            const BLACK = 1;
-            
-            // -방향
-            for (let i = range; i >= 1; i--) {
-                const nx = x - dx * i;
-                const ny = y - dy * i;
-                if (isInBoard(nx, ny)) {
-                    line.push(board[nx][ny]);
-                }
-            }
-            
-            // 중심
-            line.push(BLACK);
-            
-            // +방향
-            for (let i = 1; i <= range; i++) {
-                const nx = x + dx * i;
-                const ny = y + dy * i;
-                if (isInBoard(nx, ny)) {
-                    line.push(board[nx][ny]);
-                }
-            }
-            
-            return line;
-        }
-
-        // 삼 패턴 탐색 (띄엄삼 포함)
-        function findThreePatterns(line) {
-            const patterns = [];
-            const BLACK = 1;
-            
-            // 슬라이딩 윈도우로 길이 5~6 범위 검사
-            for (let windowSize = 5; windowSize <= 6 && windowSize <= line.length; windowSize++) {
-                for (let i = 0; i <= line.length - windowSize; i++) {
-                    const window = line.slice(i, i + windowSize);
-                    const blackCount = window.filter(v => v === BLACK).length;
-                    const emptyCount = window.filter(v => v === 0).length;
-                    
-                    // 흑돌 3개 + 빈칸 포함
-                    if (blackCount === 3 && emptyCount >= 1) {
-                        // 양 끝이 비어있으면 열린 삼
-                        const isOpen = window[0] === 0 && window[window.length - 1] === 0;
-                        patterns.push({ blackCount: 3, isOpen });
+        function fireworks() {
+            const c = document.getElementById('confetti-canvas');
+            const x = c.getContext('2d');
+            c.width = window.innerWidth; c.height = window.innerHeight;
+            let p = Array.from({length:150}, ()=>({
+                x: c.width/2, y: c.height/2,
+                vx: (Math.random()-0.5)*15, vy: (Math.random()-0.5)*15,
+                color: `hsl(${Math.random()*360}, 100%, 50%)`, life: 120
+            }));
+            function ani() {
+                x.clearRect(0,0,c.width,c.height);
+                let alive = false;
+                p.forEach(k => {
+                    if(k.life>0){
+                        k.x+=k.vx; k.y+=k.vy; k.vy+=0.2; k.life--;
+                        x.fillStyle=k.color; x.beginPath(); x.arc(k.x, k.y, 4, 0, Math.PI*2); x.fill();
+                        alive=true;
                     }
-                }
+                });
+                if(alive) requestAnimationFrame(ani);
             }
-            
-            return patterns;
+            ani();
+        }
+        
+        // 채팅
+        function toggleChat() { document.getElementById('chat-box').classList.toggle('open'); }
+        function sendChat() {
+            let i = document.getElementById('chat-input');
+            if(i.value.trim() && roomRef) { roomRef.child('chat').push({sender:myId, text:i.value}); i.value=''; }
+        }
+        function appendChat(me, txt) {
+            let b = document.getElementById('chat-msgs'), d=document.createElement('div');
+            d.className=me?'msg-me':'msg-opp'; d.innerText=(me?"나: ":"상대: ")+txt;
+            b.appendChild(d); b.scrollTop=b.scrollHeight;
         }
 
-        // 사 패턴 탐색
-        function findFourPatterns(line) {
-            const patterns = [];
-            const BLACK = 1;
-            
-            for (let windowSize = 5; windowSize <= 6 && windowSize <= line.length; windowSize++) {
-                for (let i = 0; i <= line.length - windowSize; i++) {
-                    const window = line.slice(i, i + windowSize);
-                    const blackCount = window.filter(v => v === BLACK).length;
-                    const emptyCount = window.filter(v => v === 0).length;
-                    
-                    if (blackCount === 4 && emptyCount >= 1) {
-                        const isOpen = window[0] === 0 || window[window.length - 1] === 0;
-                        patterns.push({ blackCount: 4, isOpen });
-                    }
-                }
-            }
-            
-            return patterns;
-        }
-
-        function isInBoard(x, y) {
-            return x >= 0 && x < size && y >= 0 && y < size;
-        }
-
-        function updateBoard(capturedGroups = []) {
-            const cells = document.querySelectorAll('.cell');
-            cells.forEach((cell) => {
-                const r = parseInt(cell.dataset.row);
-                const c = parseInt(cell.dataset.col);
-                
-                const existingStone = cell.querySelector('.stone');
-                if (existingStone) existingStone.remove();
-
-                if (board[r][c] !== 0) {
-                    const stone = document.createElement('div');
-                    stone.className = 'stone ' + (board[r][c] === 1 ? 'black' : board[r][c] === 2 ? 'white' : 'dead');
-                    
-                    if (capturedGroups.some(([gr, gc]) => gr === r && gc === c)) {
-                        stone.classList.add('captured-animation');
-                    }
-                    
-                    cell.appendChild(stone);
-                }
-            });
-        }
-
-        function checkCapture(r, c) {
-            const opponent = currentPlayer === 1 ? 2 : 1;
-            const directions = [[0,1],[0,-1],[1,0],[-1,0]];
-            const allCaptured = [];
-            
-            directions.forEach(([dr, dc]) => {
-                const nr = r + dr, nc = c + dc;
-                if (nr >= 0 && nr < size && nc >= 0 && nc < size && board[nr][nc] === opponent) {
-                    const group = [];
-                    if (!hasLiberty(nr, nc, opponent, new Set(), group)) {
-                        group.forEach(([gr, gc]) => {
-                            board[gr][gc] = -1;
-                            allCaptured.push([gr, gc]);
-                        });
-                    }
-                }
-            });
-            
-            return allCaptured;
-        }
-
-        function hasLiberty(r, c, color, visited, group) {
-            const key = `${r},${c}`;
-            if (visited.has(key)) return false;
-            visited.add(key);
-            group.push([r, c]);
-
-            const directions = [[0,1],[0,-1],[1,0],[-1,0]];
-            
-            for (let [dr, dc] of directions) {
-                const nr = r + dr, nc = c + dc;
-                if (nr >= 0 && nr < size && nc >= 0 && nc < size) {
-                    if (board[nr][nc] === 0) return true;
-                    if (board[nr][nc] === color && !visited.has(`${nr},${nc}`)) {
-                        if (hasLiberty(nr, nc, color, visited, group)) return true;
-                    }
-                }
-            }
-            return false;
-        }
-
-        function checkWin(r, c) {
-            const color = board[r][c];
-            if (color === -1 || color === 0) return false;
-            
-            const directions = [[0,1],[1,0],[1,1],[1,-1]];
-            
-            for (let [dr, dc] of directions) {
-                let count = 1;
-                
-                let nr = r + dr, nc = c + dc;
-                while (nr >= 0 && nr < size && nc >= 0 && nc < size && board[nr][nc] === color) {
-                    count++;
-                    nr += dr;
-                    nc += dc;
-                }
-                
-                nr = r - dr;
-                nc = c - dc;
-                while (nr >= 0 && nr < size && nc >= 0 && nc < size && board[nr][nc] === color) {
-                    count++;
-                    nr -= dr;
-                    nc -= dc;
-                }
-                
-                if (count === 5) return true;
-            }
-            return false;
-        }
-
-        function handleGameOver(winner) {
-            gameOver = true;
-            document.getElementById('winner-color').innerText = winner;
-            victoryOverlay.style.display = 'flex';
-        }
-
-        function goToMenu() {
-            victoryOverlay.style.display = 'none';
-            document.getElementById('game-screen').style.display = 'none';
-            document.getElementById('menu').style.display = 'block';
-        }
+        window.addEventListener('resize', initViewport);
     </script>
 </body>
 </html>
